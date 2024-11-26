@@ -31,7 +31,9 @@ def calculate_win_probability(current_hand, community_cards):
     win, tie, total = 0, 0, 0
 
     # Iterate over remaining cards to simulate all possible opponent hands
-    for opponent_hand in deck.draw(2):
+    remaining_cards = deck.draw(2)
+    for i in range(0, len(remaining_cards), 2):
+        opponent_hand = [remaining_cards[i], remaining_cards[i + 1]]
         total += 1
         opponent_score = evaluator.evaluate(community_cards, opponent_hand)
         my_score = evaluator.evaluate(community_cards, current_hand)
@@ -66,4 +68,3 @@ st.write("""
 - Enter your pocket cards initially to see the winning probability.
 - Add community cards as they appear at flop, turn, and river to see updated probabilities.
 """)
-
