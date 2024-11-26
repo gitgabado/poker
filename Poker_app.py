@@ -25,9 +25,15 @@ def calculate_win_probability(current_hand, community_cards):
         st.error(str(e))
         return
     
+    # Check for duplicate cards between pocket and community
+    all_cards = current_hand + community_cards
+    if len(all_cards) != len(set(all_cards)):
+        st.error("Duplicate cards detected between pocket cards and community cards. Please enter unique cards.")
+        return
+
     evaluator = Evaluator()
     deck = Deck()
-    for card in current_hand + community_cards:
+    for card in all_cards:
         if card in deck.cards:
             deck.cards.remove(card)
 
@@ -55,7 +61,7 @@ def calculate_win_probability(current_hand, community_cards):
 
             # Return cards back to deck
             deck = Deck()
-            for card in current_hand + community_cards:
+            for card in all_cards:
                 if card in deck.cards:
                     deck.cards.remove(card)
 
@@ -88,6 +94,23 @@ def calculate_win_probability(current_hand, community_cards):
             win_probability = 0
 
     st.write(f"Winning Probability: {win_probability:.2f}%")
+
+    # Provide advice based on winning probability
+    if len(community_cards) == 0:  # Pre-flop
+        if win_probability >= 60:
+            st.write("Advice: Consider making a 3x or 4x raise.")
+        else:
+            st.write("Advice: It might be better to check.")
+    elif len(community_cards) == 3:  # Flop
+        if win_probability >= 50:
+            st.write("Advice: Consider making a 2x raise.")
+        else:
+            st.write("Advice: It might be better to check.")
+    elif len(community_cards) in [4, 5]:  # Turn or River
+        if win_probability >= 50:
+            st.write("Advice: Consider calling.")
+        else:
+            st.write("Advice: It might be better to fold.")
     return win_probability
 
 # Streamlit app interface
@@ -110,4 +133,5 @@ st.header("How to use this App")
 st.write("""
 - Enter your pocket cards initially to see the winning probability.
 - Add community cards as they appear at flop, turn, and river to see updated probabilities.
+- The app will provide advice based on the winning probability and current stage.
 """)
