@@ -1,5 +1,6 @@
 import streamlit as st
 from treys import Evaluator, Card, Deck
+import itertools
 
 def convert_card_input(card_str):
     # Map suits and ranks to correct treys representation
@@ -30,12 +31,13 @@ def calculate_win_probability(current_hand, community_cards):
 
     win, tie, total = 0, 0, 0
 
-    # Iterate over remaining cards to simulate all possible opponent hands
-    remaining_cards = deck.draw(2)
-    for i in range(0, len(remaining_cards), 2):
-        opponent_hand = [remaining_cards[i], remaining_cards[i + 1]]
+    # Iterate over all possible opponent hands using remaining cards
+    remaining_cards = deck.cards
+    opponent_combinations = itertools.combinations(remaining_cards, 2)
+
+    for opponent_hand in opponent_combinations:
         total += 1
-        opponent_score = evaluator.evaluate(community_cards, opponent_hand)
+        opponent_score = evaluator.evaluate(community_cards, list(opponent_hand))
         my_score = evaluator.evaluate(community_cards, current_hand)
 
         if my_score < opponent_score:
@@ -43,7 +45,11 @@ def calculate_win_probability(current_hand, community_cards):
         elif my_score == opponent_score:
             tie += 1
 
-    win_probability = (win + tie / 2) / total * 100
+    if total > 0:
+        win_probability = (win + tie / 2) / total * 100
+    else:
+        win_probability = 0
+
     st.write(f"Winning Probability: {win_probability:.2f}%")
     return win_probability
 
@@ -68,3 +74,4 @@ st.write("""
 - Enter your pocket cards initially to see the winning probability.
 - Add community cards as they appear at flop, turn, and river to see updated probabilities.
 """)
+
