@@ -93,26 +93,26 @@ def calculate_win_probability(current_hand, community_cards):
         else:
             win_probability = 0
 
-    st.write(f"Winning Probability: {win_probability:.2f}%")
+    st.markdown(f"**Winning Probability: {win_probability:.2f}%**", unsafe_allow_html=True)
 
     # Provide advice based on winning probability
     if len(community_cards) == 0:  # Pre-flop
         if win_probability >= 65:
-            st.write("Advice: Consider making a 4x raise.")
+            st.markdown("**Advice: Consider making a 4x raise.**", unsafe_allow_html=True)
         elif 50 <= win_probability < 65:
-            st.write("Advice: Consider making a 3x raise.")
+            st.markdown("**Advice: Consider making a 3x raise.**", unsafe_allow_html=True)
         else:
-            st.write("Advice: It might be better to check.")
+            st.markdown("**Advice: It might be better to check.**", unsafe_allow_html=True)
     elif len(community_cards) == 3:  # Flop
         if win_probability >= 50:
-            st.write("Advice: Consider making a 2x raise.")
+            st.markdown("**Advice: Consider making a 2x raise.**", unsafe_allow_html=True)
         else:
-            st.write("Advice: It might be better to check.")
+            st.markdown("**Advice: It might be better to check.**", unsafe_allow_html=True)
     elif len(community_cards) in [4, 5]:  # Turn or River
         if win_probability >= 50:
-            st.write("Advice: Consider calling.")
+            st.markdown("**Advice: Consider calling.**", unsafe_allow_html=True)
         else:
-            st.write("Advice: It might be better to fold.")
+            st.markdown("**Advice: It might be better to fold.**", unsafe_allow_html=True)
     return win_probability
 
 # Streamlit app interface
@@ -120,14 +120,20 @@ st.title("Poker Learning App - Ultimate Texas Hold'em")
 st.header("Learn Poker with Winning Probability at Flop, Turn, and River")
 
 # Input section
-current_hand = st.text_input("Enter your pocket cards (e.g., AH, KH)")
-community_cards = st.text_input("Enter community cards (e.g., 7S, 2H, 9C) - Add more at each stage")
+current_hand = st.text_input("Enter your pocket cards (e.g., AH, KH)", value="", key="current_hand")
+community_cards = st.text_input("Enter community cards (e.g., 7S, 2H, 9C) - Add more at each stage", value="", key="community_cards")
 
 calculate_button = st.button("Calculate Winning Probability")
+reset_button = st.button("Reset Cards")
 
 if calculate_button:
     # Calculate win probability
     calculate_win_probability(current_hand, community_cards)
+
+if reset_button:
+    # Clear the input fields by setting new keys
+    st.session_state.current_hand = ""
+    st.session_state.community_cards = ""
 
 # Explanation
 st.markdown("---")
@@ -137,4 +143,5 @@ st.write("""
 - Add community cards as they appear at flop, turn, and river to see updated probabilities.
 - The app will provide advice based on the winning probability and current stage.
 - Note: This advice is tailored for Ultimate Texas Hold'em, which is a dealer vs. player game.
+- You can use the "Reset Cards" button to quickly enter new pocket cards for a new round.
 """)
