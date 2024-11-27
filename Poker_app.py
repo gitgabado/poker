@@ -1,5 +1,3 @@
-# File name: texas_holdem_advisor.py
-
 import streamlit as st
 from treys import Card, Evaluator, Deck
 import random
@@ -8,50 +6,20 @@ import re
 # Function to parse card input
 def parse_card(card_str):
     rank_map = {
-        '2': '2',
-        '3': '3',
-        '4': '4',
-        '5': '5',
-        '6': '6',
-        '7': '7',
-        '8': '8',
-        '9': '9',
-        '10': 'T',
-        't': 'T',
-        'ten': 'T',
-        'j': 'J',
-        'jack': 'J',
-        'q': 'Q',
-        'queen': 'Q',
-        'k': 'K',
-        'king': 'K',
-        'a': 'A',
-        'ace': 'A'
+        '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9',
+        '10': 'T', 't': 'T', 'ten': 'T', 'j': 'J', 'jack': 'J', 'q': 'Q', 'queen': 'Q',
+        'k': 'K', 'king': 'K', 'a': 'A', 'ace': 'A'
     }
     suit_map = {
-        's': 's',
-        'spades': 's',
-        '♠': 's',
-        'h': 'h',
-        'hearts': 'h',
-        '♥': 'h',
-        'd': 'd',
-        'diamonds': 'd',
-        '♦': 'd',
-        'c': 'c',
-        'clubs': 'c',
-        '♣': 'c'
+        's': 's', 'spades': 's', '♠': 's', 'h': 'h', 'hearts': 'h', '♥': 'h',
+        'd': 'd', 'diamonds': 'd', '♦': 'd', 'c': 'c', 'clubs': 'c', '♣': 'c'
     }
 
-    # Remove spaces and make lower case
     card_str = card_str.strip().lower().replace(' ', '')
-
-    # Build regex pattern
-    rank_pattern = '|'.join(sorted(rank_map.keys(), key=lambda x: -len(x)))  # Longest first to match '10' before '1'
-    suit_pattern = '|'.join(sorted(suit_map.keys(), key=lambda x: -len(x)))  # Longest first
+    rank_pattern = '|'.join(sorted(rank_map.keys(), key=lambda x: -len(x)))
+    suit_pattern = '|'.join(sorted(suit_map.keys(), key=lambda x: -len(x)))
 
     pattern = f'^({rank_pattern})({suit_pattern})$'
-
     match = re.match(pattern, card_str)
     if match:
         rank_input = match.group(1)
@@ -59,169 +27,111 @@ def parse_card(card_str):
         rank = rank_map.get(rank_input)
         suit = suit_map.get(suit_input)
         if rank and suit:
-            card_str_standard = rank + suit
-            try:
-                return Card.new(card_str_standard)
-            except:
-                st.error(f"Invalid card input: {card_str}")
-                return None
-    else:
-        st.error(f"Invalid card input: {card_str}")
-        return None
+            return Card.new(rank + suit)
+    st.error(f"Invalid card input: {card_str}")
+    return None
 
-# Function to calculate winning probability (unchanged)
+# Function to calculate winning probability
 def calculate_win_prob(hole_cards, community_cards, num_opponents=1, num_simulations=1000):
     evaluator = Evaluator()
-    wins = 0
-    ties = 0
-    losses = 0
-
-    # Known cards
+    wins, ties, losses = 0, 0, 0
     known_cards = hole_cards + community_cards
 
-    # Check if there are enough cards in the deck
-    total_known_cards = len(known_cards)
-    cards_needed_per_simulation = num_opponents * 2 + (5 - len(community_cards))
-    if total_known_cards + cards_needed_per_simulation > 52:
-        st.error("Not enough cards to simulate this scenario with the given number of opponents.")
-        return None, None, None
-
     for _ in range(num_simulations):
-        # Prepare deck
         deck = Deck()
         for card in known_cards:
             if card in deck.cards:
                 deck.cards.remove(card)
-
-        # Shuffle the deck
         random.shuffle(deck.cards)
 
-        # Draw opponents' hole cards
-        opponents_hole_cards = []
-        for _ in range(num_opponents):
-            opp_hole = [deck.draw(1)[0], deck.draw(1)[0]]
-            opponents_hole_cards.append(opp_hole)
-
-        # Complete community cards if needed
-        needed_community_cards = 5 - len(community_cards)
+        opponents_hole_cards = [deck.draw(2) for _ in range(num_opponents)]
         current_community = community_cards[:]
-        if needed_community_cards > 0:
-            current_community += deck.draw(needed_community_cards)
+        if len(current_community) < 5:
+            current_community += deck.draw(5 - len(current_community))
 
-        # Evaluate player's hand
         player_score = evaluator.evaluate(hole_cards, current_community)
+        opponent_scores = [evaluator.evaluate(opp_hole, current_community) for opp_hole in opponents_hole_cards]
 
-        # Evaluate opponents' hands
-        opponent_better = False
-        tie = False
-        for opp_hole in opponents_hole_cards:
-            opp_score = evaluator.evaluate(opp_hole, current_community)
-            if opp_score < player_score:
-                opponent_better = True
-                break
-            elif opp_score == player_score:
-                tie = True
-
-        if opponent_better:
+        if any(opp_score < player_score for opp_score in opponent_scores):
             losses += 1
-        elif tie:
+        elif any(opp_score == player_score for opp_score in opponent_scores):
             ties += 1
         else:
             wins += 1
 
-        # No need to return cards to the deck since we create a fresh deck each simulation
-
     total = wins + ties + losses
-    win_prob = (wins / total) * 100
-    tie_prob = (ties / total) * 100
-    loss_prob = (losses / total) * 100
+    return (wins / total) * 100, (ties / total) * 100, (losses / total) * 100
 
-    return win_prob, tie_prob, loss_prob
-
-# Function to reset input fields
+# Initialize session state variables
 def reset_inputs():
     st.session_state['hole_card_1'] = ''
     st.session_state['hole_card_2'] = ''
     st.session_state['community_cards'] = ''
+    st.session_state['chart_data'] = None
 
-# Initialize session state variables if they don't exist
-if 'hole_card_1' not in st.session_state:
-    st.session_state['hole_card_1'] = ''
-if 'hole_card_2' not in st.session_state:
-    st.session_state['hole_card_2'] = ''
-if 'community_cards' not in st.session_state:
-    st.session_state['community_cards'] = ''
+if 'chart_data' not in st.session_state:
+    reset_inputs()
 
 # Streamlit UI
 st.title("♠️ Texas Hold'em Advisory App ♠️")
+st.markdown("#### Analyze your winning probabilities with ease!")
 
 st.sidebar.header("Game Settings")
 num_opponents = st.sidebar.slider("Number of Opponents", 1, 8, 1)
 num_simulations = st.sidebar.slider("Number of Simulations", 1000, 10000, 1000, step=1000)
 
 st.header("Enter Your Hole Cards")
-col1, col2 = st.columns(2)
-with col1:
-    hole_card_1 = st.text_input(
-        "Hole Card 1 (e.g., As, Kh, 5d)",
-        key="hole_card_1",
-        value=st.session_state['hole_card_1']
-    )
-with col2:
-    hole_card_2 = st.text_input(
-        "Hole Card 2 (e.g., As, Kh, 5d)",
-        key="hole_card_2",
-        value=st.session_state['hole_card_2']
-    )
+hole_card_1 = st.selectbox("Hole Card 1:", ["", "As", "Ah", "Ad", "Ac", "Ks", "Kh", "Kd", "Kc", "2s", "2h", "2d", "2c"], key="hole_card_1")
+hole_card_2 = st.selectbox("Hole Card 2:", ["", "As", "Ah", "Ad", "Ac", "Ks", "Kh", "Kd", "Kc", "2s", "2h", "2d", "2c"], key="hole_card_2")
+
+st.header("Enter Community Cards")
+community_cards_input = st.text_area("Community Cards (e.g., Flop+Turn+River)", key="community_cards")
 
 hole_cards = []
 if hole_card_1 and hole_card_2:
     card1 = parse_card(hole_card_1)
     card2 = parse_card(hole_card_2)
-    if card1 and card2:
-        if card1 != card2:
-            hole_cards = [card1, card2]
-        else:
-            st.error("Hole cards cannot be the same.")
-
-st.header("Enter Community Cards")
-community_cards_input = st.text_input(
-    "Community Cards (e.g., Flop or Flop+Turn+River)",
-    key="community_cards",
-    value=st.session_state['community_cards']
-)
+    if card1 and card2 and card1 != card2:
+        hole_cards = [card1, card2]
+    else:
+        st.error("Hole cards cannot be the same.")
 
 community_cards = []
 if community_cards_input:
-    community_strs = community_cards_input.strip().split()
-    for card_str in community_strs:
+    for card_str in community_cards_input.strip().split():
         card = parse_card(card_str)
-        if card:
-            if card not in hole_cards and card not in community_cards:
-                community_cards.append(card)
-            else:
-                st.error(f"Duplicate card detected: {card_str}")
+        if card and card not in hole_cards:
+            community_cards.append(card)
+        else:
+            st.error(f"Invalid or duplicate card: {card_str}")
 
-# Buttons
+# Buttons and actions
 col1, col2 = st.columns(2)
 with col1:
-    calculate = st.button("Calculate Winning Probability")
-with col2:
-    reset = st.button("Reset", on_click=reset_inputs)
+    if st.button("Calculate Winning Probability"):
+        if len(hole_cards) == 2:
+            win_prob, tie_prob, loss_prob = calculate_win_prob(hole_cards, community_cards, num_opponents, num_simulations)
+            st.session_state['chart_data'] = {
+                "Win": win_prob,
+                "Tie": tie_prob,
+                "Lose": loss_prob
+            }
+        else:
+            st.error("Please select valid hole cards.")
 
-if calculate:
-    if len(hole_cards) != 2:
-        st.error("Please enter both of your hole cards.")
-    else:
-        result = calculate_win_prob(
-            hole_cards,
-            community_cards,
-            num_opponents=num_opponents,
-            num_simulations=num_simulations
-        )
-        if result[0] is not None:
-            win_prob, tie_prob, loss_prob = result
-            st.subheader("Winning Probability:")
-            st.write(f"**Win:** {win_prob:.2f}%")
-            st.write(f"**Tie:** {tie_prob:.2f}%")
-            st.write(f"**Lose:** {loss_prob:.2f}%")
+with col2:
+    if st.button("Reset"):
+        reset_inputs()
+
+# Display results
+if st.session_state['chart_data']:
+    st.subheader("Winning Probability:")
+    st.write(f"**Win:** {st.session_state['chart_data']['Win']:.2f}%")
+    st.write(f"**Tie:** {st.session_state['chart_data']['Tie']:.2f}%")
+    st.write(f"**Lose:** {st.session_state['chart_data']['Lose']:.2f}%")
+
+    st.bar_chart({
+        "Win": [st.session_state['chart_data']['Win']],
+        "Tie": [st.session_state['chart_data']['Tie']],
+        "Lose": [st.session_state['chart_data']['Lose']]
+    })
