@@ -134,7 +134,11 @@ community_cards = st.text_input("Enter community cards (e.g., 7S, 2H, 9C) - Add 
 use_fixed_seed = st.checkbox("Use Fixed Random Seed for Consistent Results", value=True)
 
 calculate_button = st.button("Calculate Winning Probability")
-reset_button = st.button("Reset Cards", on_click=lambda: st.session_state.update({'current_hand': '', 'community_cards': ''}))
+def reset_cards():
+    st.session_state.current_hand = ""
+    st.session_state.community_cards = ""
+
+reset_button = st.button("Reset Cards", on_click=reset_cards)
 
 if calculate_button:
     # Calculate win probability
