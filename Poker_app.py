@@ -19,8 +19,8 @@ def convert_card_input(card_str):
 def calculate_win_probability(current_hand, community_cards, use_fixed_seed=False):
     try:
         # Convert input strings into lists of cards
-        current_hand = [convert_card_input(card.strip()) for card in current_hand.replace(',', ' ').split() if card.strip()]
-        community_cards = [convert_card_input(card.strip()) for card in community_cards.replace(',', ' ').split() if card.strip()]
+        current_hand = [convert_card_input(card.strip().upper()) for card in current_hand.replace(',', '').replace(' ', '').split() if card.strip()]
+        community_cards = [convert_card_input(card.strip().upper()) for card in community_cards.replace(',', '').replace(' ', '').split() if card.strip()]
     except ValueError as e:
         st.error(str(e))
         return
@@ -38,7 +38,7 @@ def calculate_win_probability(current_hand, community_cards, use_fixed_seed=Fals
             deck.cards.remove(card)
 
     if use_fixed_seed:
-        random.seed(42)  # Fix the seed to ensure consistent results
+        random.seed(12345)  # Fix the seed to ensure consistent results
 
     if len(community_cards) < 5:  # Not enough community cards for evaluation
         win, tie, total = 0, 0, 0
@@ -96,26 +96,26 @@ def calculate_win_probability(current_hand, community_cards, use_fixed_seed=Fals
         else:
             win_probability = 0
 
-    st.markdown(f"**Winning Probability: {win_probability:.2f}%**", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='color: #ff6347;'><b>Winning Probability: {win_probability:.2f}%</b></h2>", unsafe_allow_html=True)
 
     # Provide advice based on winning probability
     if len(community_cards) == 0:  # Pre-flop
         if win_probability >= 65:
-            st.markdown("**Advice: Consider making a 4x raise.**", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color: #ffa500;'><b>Advice: Consider making a 4x raise.</b></h3>", unsafe_allow_html=True)
         elif 50 <= win_probability < 65:
-            st.markdown("**Advice: Consider making a 3x raise.**", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color: #ffa500;'><b>Advice: Consider making a 3x raise.</b></h3>", unsafe_allow_html=True)
         else:
-            st.markdown("**Advice: It might be better to check.**", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color: #ffa500;'><b>Advice: It might be better to check.</b></h3>", unsafe_allow_html=True)
     elif len(community_cards) == 3:  # Flop
         if win_probability >= 50:
-            st.markdown("**Advice: Consider making a 2x raise.**", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color: #ffa500;'><b>Advice: Consider making a 2x raise.</b></h3>", unsafe_allow_html=True)
         else:
-            st.markdown("**Advice: It might be better to check.**", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color: #ffa500;'><b>Advice: It might be better to check.</b></h3>", unsafe_allow_html=True)
     elif len(community_cards) in [4, 5]:  # Turn or River
         if win_probability >= 50:
-            st.markdown("**Advice: Consider calling.**", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color: #ffa500;'><b>Advice: Consider calling.</b></h3>", unsafe_allow_html=True)
         else:
-            st.markdown("**Advice: It might be better to fold.**", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color: #ffa500;'><b>Advice: It might be better to fold.</b></h3>", unsafe_allow_html=True)
     return win_probability
 
 # Streamlit app interface
