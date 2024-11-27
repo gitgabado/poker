@@ -1,69 +1,99 @@
 import streamlit as st
-from pypokerengine.api.game import setup_config, start_poker
-from pypokerengine.players import BasePokerPlayer
+from treys import Evaluator, Card, Deck
 import random
 
-class HonestPlayer(BasePokerPlayer):
-    def declare_action(self, valid_actions, hole_card, round_state):
-        return valid_actions[1]['action'], valid_actions[1]['amount']
 
-    def receive_game_start_message(self, game_info):
-        pass
+def convert_card_input(card_str):
+    # Map suits and ranks to correct treys representation
+    rank_map = {'2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', 'T': 'T', 'J': 'J', 'Q': 'Q', 'K': 'K', 'A': 'A'}
+    suit_map = {'S': 's', 'H': 'h', 'D': 'd', 'C': 'c'}
 
-    def receive_round_start_message(self, round_count, hole_card, seats):
-        pass
+    rank = card_str[0].upper()
+    suit = card_str[1].upper()
 
-    def receive_street_start_message(self, street, round_state):
-        pass
-
-    def receive_game_update_message(self, action, round_state):
-        pass
-
-    def receive_round_result_message(self, winners, hand_info, round_state):
-        pass
+    if rank in rank_map and suit in suit_map:
+        return Card.new(rank_map[rank] + suit_map[suit])
+    else:
+        raise ValueError(f"Invalid card input: {card_str}")
 
 
-def calculate_win_probability(current_hand, community_cards):
-    if not current_hand or len(current_hand) < 4:
-        st.error("Please enter two valid pocket cards.")
+def calculate_win_probability(current_hand, community_cards, num_simulations=10000):
+    try:
+        # Convert input strings into lists of cards
+        current_hand = [convert_card_input(card.strip().upper()) for card in current_hand.replace(',', '').replace(' ', '').split() if card.strip()]
+        community_cards = [convert_card_input(card.strip().upper()) for card in community_cards.replace(',', '').replace(' ', '').split() if card.strip()]
+    except ValueError as e:
+        st.error(str(e))
         return
 
-    hole_cards = [
-        current_hand[:2],  # e.g. 'AH'
-        current_hand[2:],  # e.g. 'AS'
-    ]
-    community_card_strings = community_cards.split()
+    # Check for duplicate cards between pocket and community
+    all_cards = current_hand + community_cards
+    if len(all_cards) != len(set(all_cards)):
+        st.error("Duplicate cards detected between pocket cards and community cards. Please enter unique cards.")
+        return
 
-    community_cards = []
-    for card in community_card_strings:
-        if len(card) == 2:
-            community_cards.append(card)
+    evaluator = Evaluator()
+    deck = Deck()
+    for card in all_cards:
+        if card in deck.cards:
+            deck.cards.remove(card)
 
-    # Set up the game configuration
-    config = setup_config(max_round=10, initial_stack=1000, small_blind_amount=10)
-    config.register_player(name="player", algorithm=HonestPlayer())
-    config.register_player(name="opponent", algorithm=HonestPlayer())
+    win, tie, total = 0, 0, 0
 
-    # Simulate multiple games to determine winning probability
-    num_simulations = 1000
-    win_count = 0
+    # Monte Carlo simulation for calculating winning probability
     for _ in range(num_simulations):
-        game_result = start_poker(config, verbose=0)
-        if game_result['players'][0]['stack'] > game_result['players'][1]['stack']:
-            win_count += 1
+        simulated_deck = deck.cards[:]
+        random.shuffle(simulated_deck)
 
-    win_probability = (win_count / num_simulations) * 100
+        # Draw remaining community cards (up to 5 cards total)
+        simulated_community = community_cards[:]
+        if len(simulated_community) < 5:
+            simulated_community += simulated_deck[:5 - len(simulated_community)]
+            simulated_deck = simulated_deck[5 - len(simulated_community):]
+
+        # Draw opponent hand
+        opponent_hand = simulated_deck[:2]
+
+        # Evaluate hands
+        try:
+            my_score = evaluator.evaluate(simulated_community, current_hand)
+            opponent_score = evaluator.evaluate(simulated_community, opponent_hand)
+        except KeyError:
+            # Skip invalid combinations
+            continue
+
+        if my_score < opponent_score:
+            win += 1
+        elif my_score == opponent_score:
+            tie += 1
+        total += 1
+
+    if total > 0:
+        win_probability = (win + tie / 2) / total * 100
+    else:
+        win_probability = 0
+
     st.markdown(f"<h2 style='color: #ff6347;'><b>Winning Probability: {win_probability:.2f}%</b></h2>", unsafe_allow_html=True)
 
     # Provide advice based on winning probability
-    if win_probability >= 75:
-        st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 4x raise. Pocket Aces or Kings are extremely strong!</b></h3>", unsafe_allow_html=True)
-    elif 55 <= win_probability < 75:
-        st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 3x raise.</b></h3>", unsafe_allow_html=True)
-    elif 30 <= win_probability < 55:
-        st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to check or call.</b></h3>", unsafe_allow_html=True)
-    else:
-        st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to fold.</b></h3>", unsafe_allow_html=True)
+    if len(community_cards) == 0:  # Pre-flop
+        if win_probability >= 75:  # Increase threshold as pocket Aces are very strong
+            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 4x raise. Pocket Aces or Kings are extremely strong!</b></h3>", unsafe_allow_html=True)
+        elif 55 <= win_probability < 75:
+            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 3x raise.</b></h3>", unsafe_allow_html=True)
+        else:
+            st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to check.</b></h3>", unsafe_allow_html=True)
+    elif len(community_cards) == 3:  # Flop
+        if win_probability >= 65:
+            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 2x raise.</b></h3>", unsafe_allow_html=True)
+        else:
+            st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to check.</b></h3>", unsafe_allow_html=True)
+    elif len(community_cards) in [4, 5]:  # Turn or River
+        if win_probability >= 55:
+            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider calling.</b></h3>", unsafe_allow_html=True)
+        else:
+            st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to fold.</b></h3>", unsafe_allow_html=True)
+    return win_probability
 
 
 # Streamlit app interface
@@ -77,8 +107,8 @@ if 'community_cards' not in st.session_state:
     st.session_state.community_cards = ""
 
 # Input section
-current_hand = st.text_input("Enter your pocket cards (e.g., AHAS)", value=st.session_state.current_hand, key="current_hand")
-community_cards = st.text_input("Enter community cards (e.g., 7S 2H 9C) - Add more at each stage", value=st.session_state.community_cards, key="community_cards")
+current_hand = st.text_input("Enter your pocket cards (e.g., AH, KH)", value=st.session_state.current_hand, key="current_hand")
+community_cards = st.text_input("Enter community cards (e.g., 7S, 2H, 9C) - Add more at each stage", value=st.session_state.community_cards, key="community_cards")
 
 calculate_button = st.button("Calculate Winning Probability")
 
