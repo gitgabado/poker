@@ -17,7 +17,7 @@ def convert_card_input(card_str):
         raise ValueError(f"Invalid card input: {card_str}")
 
 
-def calculate_win_probability(current_hand, community_cards, num_simulations=10000):
+def calculate_win_probability(current_hand, community_cards, num_simulations=5000):
     try:
         # Convert input strings into lists of cards
         current_hand = [convert_card_input(card.strip().upper()) for card in current_hand.replace(',', '').replace(' ', '').split() if card.strip()]
