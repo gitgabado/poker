@@ -1,134 +1,116 @@
+# File name: texas_holdem_advisor.py
+
 import streamlit as st
-from treys import Evaluator, Card, Deck
+from treys import Card, Evaluator, Deck
 import random
 
-
-def convert_card_input(card_str):
-    # Map suits and ranks to correct treys representation
-    rank_map = {'2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', 'T': 'T', 'J': 'J', 'Q': 'Q', 'K': 'K', 'A': 'A'}
-    suit_map = {'S': 's', 'H': 'h', 'D': 'd', 'C': 'c'}
-
-    rank = card_str[0].upper()
-    suit = card_str[1].upper()
-
-    if rank in rank_map and suit in suit_map:
-        return Card.new(rank_map[rank] + suit_map[suit])
-    else:
-        raise ValueError(f"Invalid card input: {card_str}")
-
-
-def calculate_win_probability(current_hand, community_cards, num_simulations=10000):
+# Function to parse card input
+def parse_card(card_str):
     try:
-        # Convert input strings into lists of cards
-        current_hand = [convert_card_input(card.strip().upper()) for card in current_hand.replace(',', '').replace(' ', '').split() if card.strip()]
-        community_cards = [convert_card_input(card.strip().upper()) for card in community_cards.replace(',', '').replace(' ', '').split() if card.strip()]
-    except ValueError as e:
-        st.error(str(e))
-        return
+        return Card.new(card_str)
+    except:
+        st.error(f"Invalid card input: {card_str}")
+        return None
 
-    # Check for duplicate cards between pocket and community
-    all_cards = current_hand + community_cards
-    if len(all_cards) != len(set(all_cards)):
-        st.error("Duplicate cards detected between pocket cards and community cards. Please enter unique cards.")
-        return
-
+# Function to calculate winning probability
+def calculate_win_prob(hole_cards, community_cards, num_opponents=1, num_simulations=10000):
     evaluator = Evaluator()
+    wins = 0
+    ties = 0
+    losses = 0
+
+    # Prepare deck
     deck = Deck()
-    for card in all_cards:
+    for card in hole_cards + community_cards:
         if card in deck.cards:
             deck.cards.remove(card)
 
-    win, tie, total = 0, 0, 0
-
-    # Monte Carlo simulation for calculating winning probability
     for _ in range(num_simulations):
-        simulated_deck = deck.cards[:]
-        random.shuffle(simulated_deck)
+        deck.shuffle()
 
-        # Draw remaining community cards (up to 5 cards total)
-        simulated_community = community_cards[:]
-        if len(simulated_community) < 5:
-            simulated_community += simulated_deck[:5 - len(simulated_community)]
-            simulated_deck = simulated_deck[5 - len(simulated_community):]
+        # Draw opponents' hole cards
+        opponents_hole_cards = []
+        for _ in range(num_opponents):
+            opp_hole = [deck.draw(1)[0], deck.draw(1)[0]]
+            opponents_hole_cards.append(opp_hole)
 
-        # Draw opponent hand
-        opponent_hand = simulated_deck[:2]
+        # Complete community cards if needed
+        needed_community_cards = 5 - len(community_cards)
+        current_community = community_cards[:]
+        if needed_community_cards > 0:
+            current_community += deck.draw(needed_community_cards)
 
-        # Evaluate hands
-        try:
-            my_score = evaluator.evaluate(simulated_community, current_hand)
-            opponent_score = evaluator.evaluate(simulated_community, opponent_hand)
-        except KeyError:
-            # Skip invalid combinations
-            continue
+        # Evaluate player's hand
+        player_score = evaluator.evaluate(hole_cards, current_community)
 
-        if my_score < opponent_score:
-            win += 1
-        elif my_score == opponent_score:
-            tie += 1
-        total += 1
+        # Evaluate opponents' hands
+        opponent_wins = False
+        tie = False
+        for opp_hole in opponents_hole_cards:
+            opp_score = evaluator.evaluate(opp_hole, current_community)
+            if opp_score < player_score:
+                opponent_wins = True
+                break
+            elif opp_score == player_score:
+                tie = True
 
-    if total > 0:
-        win_probability = (win + tie / 2) / total * 100
+        if opponent_wins:
+            losses += 1
+        elif tie:
+            ties += 1
+        else:
+            wins += 1
+
+        # Return cards to deck
+        deck.cards.extend([card for opp_hole in opponents_hole_cards for card in opp_hole])
+        deck.cards.extend(current_community[len(community_cards):])
+
+    total = wins + ties + losses
+    win_prob = (wins / total) * 100
+    tie_prob = (ties / total) * 100
+    loss_prob = (losses / total) * 100
+
+    return win_prob, tie_prob, loss_prob
+
+# Streamlit UI
+st.title("♠️ Texas Hold'em Advisory App ♠️")
+
+st.sidebar.header("Game Settings")
+num_opponents = st.sidebar.slider("Number of Opponents", 1, 8, 1)
+
+st.header("Enter Your Hole Cards")
+col1, col2 = st.columns(2)
+with col1:
+    hole_card_1 = st.text_input("Hole Card 1 (e.g., As, Kh, 5d)")
+with col2:
+    hole_card_2 = st.text_input("Hole Card 2 (e.g., As, Kh, 5d)")
+
+hole_cards = []
+if hole_card_1 and hole_card_2:
+    card1 = parse_card(hole_card_1.strip())
+    card2 = parse_card(hole_card_2.strip())
+    if card1 and card2:
+        hole_cards = [card1, card2]
+
+st.header("Enter Community Cards")
+community_cards_input = st.text_input("Community Cards (e.g., Flop or Flop+Turn+River)")
+
+community_cards = []
+if community_cards_input:
+    community_strs = community_cards_input.strip().split()
+    for card_str in community_strs:
+        card = parse_card(card_str)
+        if card:
+            community_cards.append(card)
+
+if st.button("Calculate Winning Probability"):
+    if len(hole_cards) != 2:
+        st.error("Please enter both of your hole cards.")
     else:
-        win_probability = 0
-
-    st.markdown(f"<h2 style='color: #ff6347;'><b>Winning Probability: {win_probability:.2f}%</b></h2>", unsafe_allow_html=True)
-
-    # Provide advice based on winning probability
-    if len(community_cards) == 0:  # Pre-flop
-        if win_probability >= 75:  # Increase threshold as pocket Aces are very strong
-            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 4x raise. Pocket Aces or Kings are extremely strong!</b></h3>", unsafe_allow_html=True)
-        elif 55 <= win_probability < 75:
-            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 3x raise.</b></h3>", unsafe_allow_html=True)
-        else:
-            st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to check.</b></h3>", unsafe_allow_html=True)
-    elif len(community_cards) == 3:  # Flop
-        if win_probability >= 65:
-            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 2x raise.</b></h3>", unsafe_allow_html=True)
-        else:
-            st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to check.</b></h3>", unsafe_allow_html=True)
-    elif len(community_cards) in [4, 5]:  # Turn or River
-        if win_probability >= 55:
-            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider calling.</b></h3>", unsafe_allow_html=True)
-        else:
-            st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to fold.</b></h3>", unsafe_allow_html=True)
-    return win_probability
-
-
-# Streamlit app interface
-st.title("Poker Learning App - Ultimate Texas Hold'em")
-st.header("Learn Poker with Winning Probability at Flop, Turn, and River")
-
-# Initialize session state for input fields if not already done
-if 'current_hand' not in st.session_state:
-    st.session_state.current_hand = ""
-if 'community_cards' not in st.session_state:
-    st.session_state.community_cards = ""
-
-# Input section
-current_hand = st.text_input("Enter your pocket cards (e.g., AH, KH)", value=st.session_state.current_hand, key="current_hand")
-community_cards = st.text_input("Enter community cards (e.g., 7S, 2H, 9C) - Add more at each stage", value=st.session_state.community_cards, key="community_cards")
-
-calculate_button = st.button("Calculate Winning Probability")
-
-def reset_cards():
-    st.session_state.current_hand = ""
-    st.session_state.community_cards = ""
-
-reset_button = st.button("Reset Cards", on_click=reset_cards)
-
-if calculate_button:
-    # Calculate win probability
-    calculate_win_probability(current_hand, community_cards)
-
-# Explanation
-st.markdown("---")
-st.header("How to use this App")
-st.write("""
-- Enter your pocket cards initially to see the winning probability.
-- Add community cards as they appear at flop, turn, and river to see updated probabilities.
-- The app will provide advice based on the winning probability and current stage.
-- Note: This advice is tailored for Ultimate Texas Hold'em, which is a dealer vs. player game.
-- You can use the "Reset Cards" button to quickly enter new pocket cards for a new round.
-""")
+        win_prob, tie_prob, loss_prob = calculate_win_prob(
+            hole_cards, community_cards, num_opponents=num_opponents
+        )
+        st.subheader("Winning Probability:")
+        st.write(f"**Win:** {win_prob:.2f}%")
+        st.write(f"**Tie:** {tie_prob:.2f}%")
+        st.write(f"**Lose:** {loss_prob:.2f}%")
