@@ -17,7 +17,7 @@ def convert_card_input(card_str):
         raise ValueError(f"Invalid card input: {card_str}")
 
 
-def calculate_win_probability(current_hand, community_cards, num_simulations=3000):
+def calculate_win_probability(current_hand, community_cards, num_simulations=10000):
     try:
         # Convert input strings into lists of cards
         current_hand = [convert_card_input(card.strip().upper()) for card in current_hand.replace(',', '').replace(' ', '').split() if card.strip()]
@@ -77,19 +77,19 @@ def calculate_win_probability(current_hand, community_cards, num_simulations=300
 
     # Provide advice based on winning probability
     if len(community_cards) == 0:  # Pre-flop
-        if win_probability >= 65:
-            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 4x raise.</b></h3>", unsafe_allow_html=True)
-        elif 50 <= win_probability < 65:
+        if win_probability >= 75:  # Increase threshold as pocket Aces are very strong
+            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 4x raise. Pocket Aces are extremely strong!</b></h3>", unsafe_allow_html=True)
+        elif 55 <= win_probability < 75:
             st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 3x raise.</b></h3>", unsafe_allow_html=True)
         else:
             st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to check.</b></h3>", unsafe_allow_html=True)
     elif len(community_cards) == 3:  # Flop
-        if win_probability >= 50:
+        if win_probability >= 65:
             st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 2x raise.</b></h3>", unsafe_allow_html=True)
         else:
             st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to check.</b></h3>", unsafe_allow_html=True)
     elif len(community_cards) in [4, 5]:  # Turn or River
-        if win_probability >= 50:
+        if win_probability >= 55:
             st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider calling.</b></h3>", unsafe_allow_html=True)
         else:
             st.markdown("<h3 style='color: #ffa500;'><b>Advice: It might be better to fold.</b></h3>", unsafe_allow_html=True)
