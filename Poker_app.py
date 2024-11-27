@@ -17,7 +17,7 @@ def convert_card_input(card_str):
         raise ValueError(f"Invalid card input: {card_str}")
 
 
-def calculate_win_probability(current_hand, community_cards, num_simulations=5000):
+def calculate_win_probability(current_hand, community_cards, num_simulations=3000):
     try:
         # Convert input strings into lists of cards
         current_hand = [convert_card_input(card.strip().upper()) for card in current_hand.replace(',', '').replace(' ', '').split() if card.strip()]
@@ -55,8 +55,12 @@ def calculate_win_probability(current_hand, community_cards, num_simulations=500
         opponent_hand = simulated_deck[:2]
 
         # Evaluate hands
-        my_score = evaluator.evaluate(simulated_community, current_hand)
-        opponent_score = evaluator.evaluate(simulated_community, opponent_hand)
+        try:
+            my_score = evaluator.evaluate(simulated_community, current_hand)
+            opponent_score = evaluator.evaluate(simulated_community, opponent_hand)
+        except KeyError:
+            # Skip invalid combinations
+            continue
 
         if my_score < opponent_score:
             win += 1
