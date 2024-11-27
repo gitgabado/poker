@@ -1,6 +1,6 @@
 import streamlit as st
 from treys import Evaluator, Card, Deck
-import itertools
+import random
 
 
 def convert_card_input(card_str):
@@ -17,7 +17,7 @@ def convert_card_input(card_str):
         raise ValueError(f"Invalid card input: {card_str}")
 
 
-def calculate_win_probability(current_hand, community_cards):
+def calculate_win_probability(current_hand, community_cards, num_simulations=10000):
     try:
         # Convert input strings into lists of cards
         current_hand = [convert_card_input(card.strip().upper()) for card in current_hand.replace(',', '').replace(' ', '').split() if card.strip()]
@@ -40,29 +40,29 @@ def calculate_win_probability(current_hand, community_cards):
 
     win, tie, total = 0, 0, 0
 
-    # Exhaustively enumerate all possible community cards and opponent hands
-    remaining_cards = deck.cards
+    # Monte Carlo simulation for calculating winning probability
+    for _ in range(num_simulations):
+        simulated_deck = deck.cards[:]
+        random.shuffle(simulated_deck)
 
-    if len(community_cards) < 5:
-        num_community_cards_needed = 5 - len(community_cards)
-        community_combinations = itertools.combinations(remaining_cards, num_community_cards_needed)
-    else:
-        community_combinations = [tuple()]
+        # Draw remaining community cards (up to 5 cards total)
+        simulated_community = community_cards[:]
+        if len(simulated_community) < 5:
+            simulated_community += simulated_deck[:5 - len(simulated_community)]
+            simulated_deck = simulated_deck[5 - len(simulated_community):]
 
-    for community_combination in community_combinations:
-        full_community = community_cards + list(community_combination)
-        new_remaining_cards = [card for card in remaining_cards if card not in community_combination]
-        opponent_combinations = itertools.combinations(new_remaining_cards, 2)
+        # Draw opponent hand
+        opponent_hand = simulated_deck[:2]
 
-        for opponent_hand in opponent_combinations:
-            total += 1
-            my_score = evaluator.evaluate(full_community, current_hand)
-            opponent_score = evaluator.evaluate(full_community, list(opponent_hand))
+        # Evaluate hands
+        my_score = evaluator.evaluate(simulated_community, current_hand)
+        opponent_score = evaluator.evaluate(simulated_community, opponent_hand)
 
-            if my_score < opponent_score:
-                win += 1
-            elif my_score == opponent_score:
-                tie += 1
+        if my_score < opponent_score:
+            win += 1
+        elif my_score == opponent_score:
+            tie += 1
+        total += 1
 
     if total > 0:
         win_probability = (win + tie / 2) / total * 100
