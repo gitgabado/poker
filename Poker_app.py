@@ -156,4 +156,49 @@ num_simulations = st.sidebar.slider("Number of Simulations", 1000, 10000, 1000, 
 st.header("Enter Your Hole Cards")
 col1, col2 = st.columns(2)
 with col1:
-    hole_card_1 = st.text_input("Hole Card 1 (e.g., As, Kh, 5d)", value=st.session_state['
+    hole_card_1 = st.text_input("Hole Card 1 (e.g., As, Kh, 5d)", value=st.session_state['hole_card_1'], key="hole_card_1")
+with col2:
+    hole_card_2 = st.text_input("Hole Card 2 (e.g., As, Kh, 5d)", value=st.session_state['hole_card_2'], key="hole_card_2")
+
+hole_cards = []
+if hole_card_1 and hole_card_2:
+    card1 = parse_card(hole_card_1)
+    card2 = parse_card(hole_card_2)
+    if card1 and card2:
+        if card1 != card2:
+            hole_cards = [card1, card2]
+        else:
+            st.error("Hole cards cannot be the same.")
+
+st.header("Enter Community Cards")
+community_cards_input = st.text_input("Community Cards (e.g., Flop or Flop+Turn+River)", value=st.session_state['community_cards'], key="community_cards")
+
+community_cards = []
+if community_cards_input:
+    community_strs = community_cards_input.strip().split()
+    for card_str in community_strs:
+        card = parse_card(card_str)
+        if card:
+            if card not in hole_cards and card not in community_cards:
+                community_cards.append(card)
+            else:
+                st.error(f"Duplicate card detected: {card_str}")
+
+if st.button("Calculate Winning Probability"):
+    if len(hole_cards) != 2:
+        st.error("Please enter both of your hole cards.")
+    else:
+        result = calculate_win_prob(
+            hole_cards, community_cards, num_opponents=num_opponents, num_simulations=num_simulations
+        )
+        if result[0] is not None:
+            win_prob, tie_prob, loss_prob = result
+            st.subheader("Winning Probability:")
+            st.write(f"**Win:** {win_prob:.2f}%")
+            st.write(f"**Tie:** {tie_prob:.2f}%")
+            st.write(f"**Lose:** {loss_prob:.2f}%")
+
+        # Clear the input fields by resetting the session state variables
+        st.session_state['hole_card_1'] = ''
+        st.session_state['hole_card_2'] = ''
+        st.session_state['community_cards'] = ''
