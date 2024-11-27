@@ -3,16 +3,73 @@
 import streamlit as st
 from treys import Card, Evaluator, Deck
 import random
+import re
 
 # Function to parse card input
 def parse_card(card_str):
-    try:
-        return Card.new(card_str)
-    except:
+    rank_map = {
+        '2': '2',
+        '3': '3',
+        '4': '4',
+        '5': '5',
+        '6': '6',
+        '7': '7',
+        '8': '8',
+        '9': '9',
+        '10': 'T',
+        't': 'T',
+        'ten': 'T',
+        'j': 'J',
+        'jack': 'J',
+        'q': 'Q',
+        'queen': 'Q',
+        'k': 'K',
+        'king': 'K',
+        'a': 'A',
+        'ace': 'A'
+    }
+    suit_map = {
+        's': 's',
+        'spades': 's',
+        '♠': 's',
+        'h': 'h',
+        'hearts': 'h',
+        '♥': 'h',
+        'd': 'd',
+        'diamonds': 'd',
+        '♦': 'd',
+        'c': 'c',
+        'clubs': 'c',
+        '♣': 'c'
+    }
+
+    # Remove spaces and make lower case
+    card_str = card_str.strip().lower().replace(' ', '')
+
+    # Build regex pattern
+    rank_pattern = '|'.join(sorted(rank_map.keys(), key=lambda x: -len(x)))  # Longest first to match '10' before '1'
+    suit_pattern = '|'.join(sorted(suit_map.keys(), key=lambda x: -len(x)))  # Longest first
+
+    pattern = f'^({rank_pattern})({suit_pattern})$'
+
+    match = re.match(pattern, card_str)
+    if match:
+        rank_input = match.group(1)
+        suit_input = match.group(2)
+        rank = rank_map.get(rank_input)
+        suit = suit_map.get(suit_input)
+        if rank and suit:
+            card_str_standard = rank + suit
+            try:
+                return Card.new(card_str_standard)
+            except:
+                st.error(f"Invalid card input: {card_str}")
+                return None
+    else:
         st.error(f"Invalid card input: {card_str}")
         return None
 
-# Function to calculate winning probability
+# Function to calculate winning probability (unchanged)
 def calculate_win_prob(hole_cards, community_cards, num_opponents=1, num_simulations=1000):
     evaluator = Evaluator()
     wins = 0
@@ -97,8 +154,8 @@ with col2:
 
 hole_cards = []
 if hole_card_1 and hole_card_2:
-    card1 = parse_card(hole_card_1.strip())
-    card2 = parse_card(hole_card_2.strip())
+    card1 = parse_card(hole_card_1)
+    card2 = parse_card(hole_card_2)
     if card1 and card2:
         if card1 != card2:
             hole_cards = [card1, card2]
