@@ -1,7 +1,6 @@
 import streamlit as st
 from treys import Evaluator, Card, Deck
 from itertools import combinations
-import random
 
 
 def convert_card_input(card_str):
@@ -44,7 +43,6 @@ def calculate_win_probability(current_hand, community_cards):
     # Enumerate all possible opponent hands
     opponent_hands = list(combinations(deck.cards, 2))
     for opponent_hand in opponent_hands:
-        total += 1
         my_score = evaluator.evaluate(community_cards, current_hand)
         opponent_score = evaluator.evaluate(community_cards, list(opponent_hand))
 
@@ -52,6 +50,7 @@ def calculate_win_probability(current_hand, community_cards):
             win += 1
         elif my_score == opponent_score:
             tie += 1
+        total += 1
 
     if total > 0:
         win_probability = (win + tie / 2) / total * 100
