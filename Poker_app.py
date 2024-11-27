@@ -43,8 +43,14 @@ def calculate_win_probability(current_hand, community_cards):
     # Enumerate all possible opponent hands
     opponent_hands = list(combinations(deck.cards, 2))
     for opponent_hand in opponent_hands:
-        my_score = evaluator.evaluate(community_cards + current_hand, [])
-        opponent_score = evaluator.evaluate(community_cards + list(opponent_hand), [])
+        full_hand_player = community_cards + current_hand
+        full_hand_opponent = community_cards + list(opponent_hand)
+
+        if len(full_hand_player) < 5:
+            continue  # Skip cases where the community cards are not enough to form a full hand
+
+        my_score = evaluator.evaluate(full_hand_player, [])
+        opponent_score = evaluator.evaluate(full_hand_opponent, [])
 
         if my_score < opponent_score:
             win += 1
