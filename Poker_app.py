@@ -1,5 +1,6 @@
 import streamlit as st
 from treys import Evaluator, Card, Deck
+from itertools import combinations
 import random
 
 
@@ -17,7 +18,7 @@ def convert_card_input(card_str):
         raise ValueError(f"Invalid card input: {card_str}")
 
 
-def calculate_win_probability(current_hand, community_cards, num_simulations=10000):
+def calculate_win_probability(current_hand, community_cards):
     try:
         # Convert input strings into lists of cards
         current_hand = [convert_card_input(card.strip().upper()) for card in current_hand.replace(',', '').replace(' ', '').split() if card.strip()]
@@ -40,33 +41,17 @@ def calculate_win_probability(current_hand, community_cards, num_simulations=100
 
     win, tie, total = 0, 0, 0
 
-    # Monte Carlo simulation for calculating winning probability
-    for _ in range(num_simulations):
-        simulated_deck = deck.cards[:]
-        random.shuffle(simulated_deck)
-
-        # Draw remaining community cards (up to 5 cards total)
-        simulated_community = community_cards[:]
-        if len(simulated_community) < 5:
-            simulated_community += simulated_deck[:5 - len(simulated_community)]
-            simulated_deck = simulated_deck[5 - len(simulated_community):]
-
-        # Draw opponent hand
-        opponent_hand = simulated_deck[:2]
-
-        # Evaluate hands
-        try:
-            my_score = evaluator.evaluate(simulated_community, current_hand)
-            opponent_score = evaluator.evaluate(simulated_community, opponent_hand)
-        except KeyError:
-            # Skip invalid combinations
-            continue
+    # Enumerate all possible opponent hands
+    opponent_hands = list(combinations(deck.cards, 2))
+    for opponent_hand in opponent_hands:
+        total += 1
+        my_score = evaluator.evaluate(community_cards, current_hand)
+        opponent_score = evaluator.evaluate(community_cards, list(opponent_hand))
 
         if my_score < opponent_score:
             win += 1
         elif my_score == opponent_score:
             tie += 1
-        total += 1
 
     if total > 0:
         win_probability = (win + tie / 2) / total * 100
@@ -78,7 +63,7 @@ def calculate_win_probability(current_hand, community_cards, num_simulations=100
     # Provide advice based on winning probability
     if len(community_cards) == 0:  # Pre-flop
         if win_probability >= 75:  # Increase threshold as pocket Aces are very strong
-            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 4x raise. Pocket Aces are extremely strong!</b></h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 4x raise. Pocket Aces or Kings are extremely strong!</b></h3>", unsafe_allow_html=True)
         elif 55 <= win_probability < 75:
             st.markdown("<h3 style='color: #ffa500;'><b>Advice: Consider making a 3x raise.</b></h3>", unsafe_allow_html=True)
         else:
