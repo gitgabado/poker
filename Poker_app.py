@@ -118,4 +118,5 @@ st.write("""
 - The app will provide advice based on the winning probability and current stage.
 - Note: This advice is tailored for Ultimate Texas Hold'em, which is a dealer vs. player game.
 - You can use the "Reset Cards" button to quickly enter new pocket cards for a new round.
-- To get consistent results across multiple runs, you can enable the "Use Fixed Random S
+- To get consistent results across multiple runs, you can enable the "Use Fixed Random Seed" checkbox.
+""")
