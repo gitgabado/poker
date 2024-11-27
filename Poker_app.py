@@ -16,11 +16,11 @@ def convert_card_input(card_str):
     else:
         raise ValueError(f"Invalid card input: {card_str}")
 
-def calculate_win_probability(current_hand, community_cards):
+def calculate_win_probability(current_hand, community_cards, use_fixed_seed=False):
     try:
         # Convert input strings into lists of cards
-        current_hand = [convert_card_input(card.strip()) for card in current_hand.split(',')]
-        community_cards = [convert_card_input(card.strip()) for card in community_cards.split(',') if card.strip()]
+        current_hand = [convert_card_input(card.strip()) for card in current_hand.replace(',', ' ').split() if card.strip()]
+        community_cards = [convert_card_input(card.strip()) for card in community_cards.replace(',', ' ').split() if card.strip()]
     except ValueError as e:
         st.error(str(e))
         return
@@ -37,9 +37,12 @@ def calculate_win_probability(current_hand, community_cards):
         if card in deck.cards:
             deck.cards.remove(card)
 
+    if use_fixed_seed:
+        random.seed(42)  # Fix the seed to ensure consistent results
+
     if len(community_cards) < 5:  # Not enough community cards for evaluation
         win, tie, total = 0, 0, 0
-        num_simulations = 1000  # Run multiple simulations to estimate win probability
+        num_simulations = 10000  # Increased number of simulations to get more consistent results
 
         for _ in range(num_simulations):
             # Draw remaining community cards (up to 5 cards)
@@ -128,13 +131,14 @@ if 'community_cards' not in st.session_state:
 # Input section
 current_hand = st.text_input("Enter your pocket cards (e.g., AH, KH)", value=st.session_state.current_hand, key="current_hand")
 community_cards = st.text_input("Enter community cards (e.g., 7S, 2H, 9C) - Add more at each stage", value=st.session_state.community_cards, key="community_cards")
+use_fixed_seed = st.checkbox("Use Fixed Random Seed for Consistent Results", value=True)
 
 calculate_button = st.button("Calculate Winning Probability")
-reset_button = st.button("Reset Cards")
+reset_button = st.button("Reset Cards", on_click=lambda: st.session_state.update({'current_hand': '', 'community_cards': ''}))
 
 if calculate_button:
     # Calculate win probability
-    calculate_win_probability(current_hand, community_cards)
+    calculate_win_probability(current_hand, community_cards, use_fixed_seed)
 
 if reset_button:
     # Clear the input fields
@@ -150,4 +154,5 @@ st.write("""
 - The app will provide advice based on the winning probability and current stage.
 - Note: This advice is tailored for Ultimate Texas Hold'em, which is a dealer vs. player game.
 - You can use the "Reset Cards" button to quickly enter new pocket cards for a new round.
+- To get consistent results across multiple runs, you can enable the "Use Fixed Random Seed" checkbox.
 """)
