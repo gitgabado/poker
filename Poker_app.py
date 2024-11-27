@@ -13,20 +13,31 @@ def parse_card(card_str):
         return None
 
 # Function to calculate winning probability
-def calculate_win_prob(hole_cards, community_cards, num_opponents=1, num_simulations=10000):
+def calculate_win_prob(hole_cards, community_cards, num_opponents=1, num_simulations=1000):
     evaluator = Evaluator()
     wins = 0
     ties = 0
     losses = 0
 
-    # Prepare deck
-    deck = Deck()
-    for card in hole_cards + community_cards:
-        if card in deck.cards:
-            deck.cards.remove(card)
+    # Known cards
+    known_cards = hole_cards + community_cards
+
+    # Check if there are enough cards in the deck
+    total_known_cards = len(known_cards)
+    cards_needed_per_simulation = num_opponents * 2 + (5 - len(community_cards))
+    if total_known_cards + cards_needed_per_simulation > 52:
+        st.error("Not enough cards to simulate this scenario with the given number of opponents.")
+        return None, None, None
 
     for _ in range(num_simulations):
-        deck.shuffle()
+        # Prepare deck
+        deck = Deck()
+        for card in known_cards:
+            if card in deck.cards:
+                deck.cards.remove(card)
+
+        # Shuffle the deck
+        random.shuffle(deck.cards)
 
         # Draw opponents' hole cards
         opponents_hole_cards = []
@@ -44,26 +55,24 @@ def calculate_win_prob(hole_cards, community_cards, num_opponents=1, num_simulat
         player_score = evaluator.evaluate(hole_cards, current_community)
 
         # Evaluate opponents' hands
-        opponent_wins = False
+        opponent_better = False
         tie = False
         for opp_hole in opponents_hole_cards:
             opp_score = evaluator.evaluate(opp_hole, current_community)
             if opp_score < player_score:
-                opponent_wins = True
+                opponent_better = True
                 break
             elif opp_score == player_score:
                 tie = True
 
-        if opponent_wins:
+        if opponent_better:
             losses += 1
         elif tie:
             ties += 1
         else:
             wins += 1
 
-        # Return cards to deck
-        deck.cards.extend([card for opp_hole in opponents_hole_cards for card in opp_hole])
-        deck.cards.extend(current_community[len(community_cards):])
+        # No need to return cards to the deck since we create a fresh deck each simulation
 
     total = wins + ties + losses
     win_prob = (wins / total) * 100
@@ -77,23 +86,27 @@ st.title("♠️ Texas Hold'em Advisory App ♠️")
 
 st.sidebar.header("Game Settings")
 num_opponents = st.sidebar.slider("Number of Opponents", 1, 8, 1)
+num_simulations = st.sidebar.slider("Number of Simulations", 1000, 10000, 1000, step=1000)
 
 st.header("Enter Your Hole Cards")
 col1, col2 = st.columns(2)
 with col1:
-    hole_card_1 = st.text_input("Hole Card 1 (e.g., As, Kh, 5d)")
+    hole_card_1 = st.text_input("Hole Card 1 (e.g., As, Kh, 5d)", key="hole_card_1")
 with col2:
-    hole_card_2 = st.text_input("Hole Card 2 (e.g., As, Kh, 5d)")
+    hole_card_2 = st.text_input("Hole Card 2 (e.g., As, Kh, 5d)", key="hole_card_2")
 
 hole_cards = []
 if hole_card_1 and hole_card_2:
     card1 = parse_card(hole_card_1.strip())
     card2 = parse_card(hole_card_2.strip())
     if card1 and card2:
-        hole_cards = [card1, card2]
+        if card1 != card2:
+            hole_cards = [card1, card2]
+        else:
+            st.error("Hole cards cannot be the same.")
 
 st.header("Enter Community Cards")
-community_cards_input = st.text_input("Community Cards (e.g., Flop or Flop+Turn+River)")
+community_cards_input = st.text_input("Community Cards (e.g., Flop or Flop+Turn+River)", key="community_cards")
 
 community_cards = []
 if community_cards_input:
@@ -101,16 +114,21 @@ if community_cards_input:
     for card_str in community_strs:
         card = parse_card(card_str)
         if card:
-            community_cards.append(card)
+            if card not in hole_cards and card not in community_cards:
+                community_cards.append(card)
+            else:
+                st.error(f"Duplicate card detected: {card_str}")
 
 if st.button("Calculate Winning Probability"):
     if len(hole_cards) != 2:
         st.error("Please enter both of your hole cards.")
     else:
-        win_prob, tie_prob, loss_prob = calculate_win_prob(
-            hole_cards, community_cards, num_opponents=num_opponents
+        result = calculate_win_prob(
+            hole_cards, community_cards, num_opponents=num_opponents, num_simulations=num_simulations
         )
-        st.subheader("Winning Probability:")
-        st.write(f"**Win:** {win_prob:.2f}%")
-        st.write(f"**Tie:** {tie_prob:.2f}%")
-        st.write(f"**Lose:** {loss_prob:.2f}%")
+        if result[0] is not None:
+            win_prob, tie_prob, loss_prob = result
+            st.subheader("Winning Probability:")
+            st.write(f"**Win:** {win_prob:.2f}%")
+            st.write(f"**Tie:** {tie_prob:.2f}%")
+            st.write(f"**Lose:** {loss_prob:.2f}%")
