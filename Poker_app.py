@@ -119,9 +119,15 @@ def calculate_win_probability(current_hand, community_cards):
 st.title("Poker Learning App - Ultimate Texas Hold'em")
 st.header("Learn Poker with Winning Probability at Flop, Turn, and River")
 
+# Initialize session state for input fields if not already done
+if 'current_hand' not in st.session_state:
+    st.session_state.current_hand = ""
+if 'community_cards' not in st.session_state:
+    st.session_state.community_cards = ""
+
 # Input section
-current_hand = st.text_input("Enter your pocket cards (e.g., AH, KH)", value="", key="current_hand")
-community_cards = st.text_input("Enter community cards (e.g., 7S, 2H, 9C) - Add more at each stage", value="", key="community_cards")
+current_hand = st.text_input("Enter your pocket cards (e.g., AH, KH)", value=st.session_state.current_hand, key="current_hand")
+community_cards = st.text_input("Enter community cards (e.g., 7S, 2H, 9C) - Add more at each stage", value=st.session_state.community_cards, key="community_cards")
 
 calculate_button = st.button("Calculate Winning Probability")
 reset_button = st.button("Reset Cards")
@@ -131,7 +137,7 @@ if calculate_button:
     calculate_win_probability(current_hand, community_cards)
 
 if reset_button:
-    # Clear the input fields by setting new keys
+    # Clear the input fields
     st.session_state.current_hand = ""
     st.session_state.community_cards = ""
 
